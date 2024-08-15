@@ -35,7 +35,7 @@ class KeywordsStoppingCriteria(StoppingCriteria):
             return flag
 
 
-def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha=32, use_multi_gpus=False, pooling_shape=(16,12,12)):
+def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha=32, pooling_shape=(16,12,12)):
     kwargs = {
         'num_frames': num_frames,
     }
