@@ -7,9 +7,7 @@ import os
 import sys
 import time
 import wandb
-from typing import Any, Dict, Union
 
-import torch
 from .distributed import get_rank, is_main_process
 from termcolor import colored
 

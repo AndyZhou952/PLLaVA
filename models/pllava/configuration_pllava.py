@@ -13,9 +13,9 @@
 # limitations under the License.
 """ Llava model configuration"""
 
-from transformers.configuration_utils import PretrainedConfig
-from transformers.utils import logging
-from transformers.models.auto import CONFIG_MAPPING
+from mindnlp.transformers.configuration_utils import PretrainedConfig
+from mindnlp.transformers import logging
+from mindnlp.transformers.models.auto import CONFIG_MAPPING
 
 
 logger = logging.get_logger(__name__)
@@ -58,7 +58,7 @@ class PllavaConfig(PretrainedConfig):
     Example:
 
     ```python
-    >>> from transformers import LlavaForConditionalGeneration, LlavaConfig, CLIPVisionConfig, LlamaConfig
+    >>> from mindnlp.transformers import LlavaForConditionalGeneration, LlavaConfig, CLIPVisionConfig, LlamaConfig
 
     >>> # Initializing a CLIP-vision config
     >>> vision_config = CLIPVisionConfig()
@@ -139,6 +139,7 @@ class PllavaConfig(PretrainedConfig):
             self.text_config.gradient_checkpointing = self.gradient_checkpointing
             
         elif text_config is None:
+            # TODO: delete flash_attention?
             tmp_config = {"_attn_implementation":"flash_attention_2",
                           "gradient_checkpointing": self.gradient_checkpointing}
             self.text_config = CONFIG_MAPPING["llama"](**tmp_config)

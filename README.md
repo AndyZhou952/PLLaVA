@@ -101,7 +101,7 @@ This repo is built up using [transformers](https://github.com/huggingface/transf
 
 1. Above all, the following environment set up is for python 3.10. If you choose to use conda for environment setup, we recommend creating the virtual environment with:
 ```bash
-conda create -n pllava python=3.10
+conda create -n pllava python=3.9
 ```
 
 1. Firstly, install [pytorch](https://pytorch.org/) from the official website. The code runs on torch 2.2.1, cu118 or cu122. Select the version that suits your drive version.

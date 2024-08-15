@@ -22,9 +22,8 @@ from typing import List, Optional, Union
 import PIL.Image
 import numpy as np
 
-from transformers import AutoTokenizer
-from transformers.feature_extraction_utils import BatchFeature
-from transformers.image_utils import (
+from mindnlp.transformers.feature_extraction_utils import BatchFeature
+from mindnlp.transformers.image_utils import (
     ImageInput,
     make_list_of_images,
     valid_images,
@@ -32,13 +31,11 @@ from transformers.image_utils import (
     to_numpy_array,
     get_image_size,
     ChannelDimension,
+    PILImageResampling,
 )
-from transformers.image_processing_utils import get_size_dict
-from transformers.image_utils import PILImageResampling
-from transformers.processing_utils import ProcessorMixin
-from transformers.image_transforms import resize, pad, PaddingMode, to_channel_dimension_format, get_resize_output_image_size
-from transformers.tokenization_utils_base import PaddingStrategy, PreTokenizedInput, TextInput, TruncationStrategy
-from transformers.utils import TensorType
+from mindnlp.transformers.processing_utils import ProcessorMixin
+from mindnlp.transformers.image_transforms import resize, pad, PaddingMode, to_channel_dimension_format, get_resize_output_image_size
+from mindnlp.transformers.tokenization_utils_base import PaddingStrategy, PreTokenizedInput, TextInput, TruncationStrategy
 
 
 class PllavaProcessor(ProcessorMixin):
@@ -180,7 +177,7 @@ class PllavaProcessor(ProcessorMixin):
         padding: Union[bool, str, PaddingStrategy] = False,
         truncation: Union[bool, str, TruncationStrategy] = None,
         max_length=None,
-        return_tensors: Optional[Union[str, TensorType]] = TensorType.PYTORCH,
+        return_tensors: Optional[str] = "ms",
     ) -> BatchFeature:
         """
         Main method to prepare for the model one or several sequences(s) and image(s). This method forwards the `text`
@@ -245,7 +242,7 @@ class PllavaProcessor(ProcessorMixin):
                 if not valid_images(images):
                     raise ValueError(
                         "Invalid image type. Must be of type PIL.Image.Image, numpy.ndarray, "
-                        "torch.Tensor, tf.Tensor or jax.ndarray."
+                        "ms.Tensor, tf.Tensor or jax.ndarray."
                     )                
 
                 center_pad = center_pad if center_pad is not None else self.center_pad

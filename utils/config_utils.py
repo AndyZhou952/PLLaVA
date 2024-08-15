@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from os.path import dirname, join
 
 from utils.config import Config

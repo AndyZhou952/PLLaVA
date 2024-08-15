@@ -11,21 +11,19 @@ from PIL import Image
 import cv2
 import imageio
 import numpy as np
-import torch
-from torch.utils.data import Dataset
-import torchvision.transforms as T
-from torchvision.transforms.functional import InterpolationMode
+import mindspore as ms
+import mindnlp.core.ops as ops
+import mindspore.dataset.vision as vision
+import mindspore.dataset.transforms as transforms
 from moviepy.editor import VideoFileClip
 
 
 from decord import VideoReader, cpu # This is Terrible, if you have this line of import in front of torch, will cause model.to(device) to hang
-from transformers import StoppingCriteria, StoppingCriteriaList
-from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
+from mindnlp.transformers import StoppingCriteria, StoppingCriteriaList
 
 from utils.easydict import EasyDict
 
 IMAGE_TOKEN = "<image>"
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 
@@ -255,7 +253,7 @@ conv_templates = {
 }
 
 
-class EvalDataset(Dataset):
+class EvalDataset():
 
     def __init__(self, num_segments, test_ratio=None):
         super().__init__()
@@ -401,7 +399,6 @@ class ChatPllava:
 
     def answer(self, conv: Conversation, img_list, max_new_tokens=200, num_beams=1, min_length=1, top_p=0.9,
                repetition_penalty=1.0, length_penalty=1, temperature=1.0):
-        torch.cuda.empty_cache()
         prompt = conv.get_prompt()
         if prompt.count(conv.mm_token) < len(img_list):
             diff_mm_num = len(img_list) - prompt.count(conv.mm_token)
@@ -409,12 +406,12 @@ class ChatPllava:
                 conv.user_query("", is_mm=True)
             prompt = conv.get_prompt()
             
-        inputs = self.processor(text=prompt, images=img_list, return_tensors="pt")
+        inputs = self.processor(text=prompt, images=img_list, return_tensors="ms")
         if inputs['pixel_values'] is None:
             inputs.pop('pixel_values')
         inputs = inputs.to(self.model.device)
 
-        with torch.no_grad():
+        with mindnlp.core.no_grad():
             output_token = self.model.generate(**inputs, media_type='video',
                                         do_sample=self.do_sample,max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length, 
                                         top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature,
@@ -424,14 +421,14 @@ class ChatPllava:
         if self.print_res:
             print('###PROMPT: ', prompt)
             print('###LM OUTPUT TEXT', output_text)
-        # <|im_start|> encode and then decode would extend a space at folloing, this is insane...
+        # <|im_start|> encode and then decode would extend a space at following, this is insane...
         if conv.roles[-1] == "<|im_start|>assistant\n":
             split_tag = "<|im_start|> assistant\n"
         else:
             split_tag = conv.roles[-1]
         output_text = output_text.split(split_tag)[-1].rstrip(conv.sep[1])
         conv.assistant_response(output_text)
-        return output_text, output_token.cpu().numpy(), conv
+        return output_text, output_token.asnumpy(), conv
     
         
     def get_index(self, num_frames, num_segments):
@@ -471,7 +468,7 @@ class ChatPllava:
 
     def upload_video(self, image, conv: Conversation, img_list: list[list], num_segments=None):
         num_segments = self.model.config.num_frames if num_segments is None else num_segments 
-        if isinstance(image, str):  # is a image path
+        if isinstance(image, str):  # is an image path
             vid, msg = self.load_video(image, num_segments=num_segments, return_msg=True)
         else:
             raise NotImplementedError
@@ -481,37 +478,36 @@ class ChatPllava:
         msg = "Received."
         # self.conv.append_message(self.conv.roles[1], msg)
         return msg, img_list, conv
-    
+
     def upload_img(self, image, conv, img_list):
         assert False
-        img = image#Image.open(image)#.convert('RGB')
-        transform = T.Compose(
+        img = image
+        transform = transforms.Compose(
             [
-                T.Resize(
-                    (224, 224), interpolation=InterpolationMode.BICUBIC
-                ),
-                T.ToTensor(),
-                T.Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
+                vision.Resize((224, 224), interpolation=vision.Inter.BICUBIC),
+                vision.ToTensor(),
+                vision.Normalize(mean=(0.48145466, 0.4578275, 0.40821073), std=(0.26862954, 0.26130258, 0.27577711)),
             ]
         )
 
-        img = transform(img).unsqueeze(0).unsqueeze(0).cuda()
+        img = ms.Tensor(transform(img)).unsqueeze(0).unsqueeze(0)
+
         image_emb, _ = self.model.encode_img(img, "Observe the image and answer the question.")
         img_list.append(image_emb)
+
         conv.messages.append([
             conv.roles[0],
             f"<Image><ImageHere></Image>\n"
         ])
         msg = "Received."
-        # self.conv.append_message(self.conv.roles[1], msg)
-        return msg,img_list, conv
+        return msg, img_list, conv
 
 class StoppingCriteriaSub(StoppingCriteria):
-    def __init__(self, stops=[], encounters=1):
+    def __init__(self, stops=[]):
         super().__init__()
         self.stops = stops
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor):
+    def __call__(self, input_ids: ms.Tensor, scores: ms.Tensor):
         for stop in self.stops:
-            if torch.all((stop == input_ids[0][-len(stop):])).item():
+            if ops.all((stop == input_ids[0][-len(stop):])).item():
                 return True
         return False

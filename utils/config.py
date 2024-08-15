@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import os.path as osp
 import re
 import shutil

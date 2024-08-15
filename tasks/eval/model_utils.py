@@ -1,15 +1,15 @@
 
-import torch
+import mindspore as ms
+from mindspore import load_param_into_net
 import os
 from peft import get_peft_model, LoraConfig, TaskType
 from safetensors import safe_open
 from peft import PeftModel
 from tasks.eval.eval_utils import Conversation
 from models.pllava import PllavaProcessor, PllavaForConditionalGeneration, PllavaConfig
-from accelerate import init_empty_weights, dispatch_model, infer_auto_device_map,load_checkpoint_in_model
-from accelerate.utils import get_balanced_memory
 
-from transformers import StoppingCriteria
+from mindnlp.transformers import StoppingCriteria
+
 class KeywordsStoppingCriteria(StoppingCriteria):
     def __init__(self, keywords, tokenizer, input_ids):
         self.keywords = keywords
@@ -18,7 +18,7 @@ class KeywordsStoppingCriteria(StoppingCriteria):
         self.input_ids = input_ids
 
     def __call__(
-        self, output_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs
+        self, output_ids: ms.Tensor, scores: ms.Tensor, **kwargs
     ) -> bool:
         if self.start_len is None:
             self.start_len = self.input_ids.shape[1]
@@ -31,7 +31,6 @@ class KeywordsStoppingCriteria(StoppingCriteria):
             for output in outputs:
                 for keyword in self.keywords:
                     if keyword not in output:
-                        flag = False
                         return False
             return flag
 
@@ -49,12 +48,12 @@ def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha
         **kwargs,
     )
     
-    with torch.no_grad():
-        model = PllavaForConditionalGeneration.from_pretrained(repo_id, config=config, torch_dtype=torch.bfloat16)
+    with mindnlp.core.no_grad():
+        model = PllavaForConditionalGeneration.from_pretrained(repo_id, config=config, torch_dtype=ms.bfloat16)
         
     try:
         processor = PllavaProcessor.from_pretrained(repo_id)
-    except Exception as e:
+    except Exception:
         processor = PllavaProcessor.from_pretrained('llava-hf/llava-1.5-7b-hf')
 
     # config lora
@@ -96,31 +95,13 @@ def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha
                             state_dict[k] = f.get_tensor(k)
             
         if 'model' in state_dict.keys():
-            msg = model.load_state_dict(state_dict['model'], strict=False)
+            param_dict = state_dict['model']
         else:
-            msg = model.load_state_dict(state_dict, strict=False)
+            param_dict = state_dict
+        msg = load_param_into_net(model, param_dict)
         print(msg)
-    # dispatch model weight
-    if use_multi_gpus:
-        max_memory = get_balanced_memory(
-            model,
-            max_memory=None,
-            no_split_module_classes=["LlamaDecoderLayer"],
-            dtype='bfloat16',
-            low_zero=False,
-        )
 
-        device_map = infer_auto_device_map(
-            model,
-            max_memory=max_memory,
-            no_split_module_classes=["LlamaDecoderLayer"],
-            dtype='bfloat16'
-        )
-
-        dispatch_model(model, device_map=device_map)
-        print(model.hf_device_map)
-
-    model = model.eval()
+    model.set_train(False)
 
     return model, processor
 
@@ -143,7 +124,6 @@ def pllava_answer(conv: Conversation, model, processor, img_list, do_sample=True
     inputs = processor(text=prompt, images=img_list, return_tensors="pt")
     if inputs['pixel_values'] is None:
         inputs.pop('pixel_values')
-    inputs = inputs.to(model.device)
     
     # set up stopping criteria
     if stop_criteria_keywords is not None:
@@ -151,7 +131,7 @@ def pllava_answer(conv: Conversation, model, processor, img_list, do_sample=True
     else:
         stopping_criteria= None
 
-    with torch.no_grad():
+    with mindnlp.core.no_grad():
         output_token = model.generate(**inputs, media_type='video',
                                       do_sample=do_sample, max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length, 
                                       top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature, 

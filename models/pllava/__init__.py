@@ -13,43 +13,9 @@
 # limitations under the License.
 from typing import TYPE_CHECKING
 
-from transformers.utils import OptionalDependencyNotAvailable, _LazyModule, is_torch_available
-
-
-_import_structure = {"configuration_pllava": ["PLLAVA_PRETRAINED_CONFIG_ARCHIVE_MAP", "PllavaConfig"]}
-
-try:
-    if not is_torch_available():
-        raise OptionalDependencyNotAvailable()
-except OptionalDependencyNotAvailable:
-    pass
-else:
-    _import_structure["modeling_pllava"] = [
-        "PLLAVA_PRETRAINED_MODEL_ARCHIVE_LIST",
-        "PllavaForConditionalGeneration",
-        "PllavaPreTrainedModel",
-    ]
-    _import_structure["processing_pllava"] = ["PllavaProcessor"]
-
-
-if TYPE_CHECKING:
-    from .configuration_pllava import PLLAVA_PRETRAINED_CONFIG_ARCHIVE_MAP, PllavaConfig
-
-    try:
-        if not is_torch_available():
-            raise OptionalDependencyNotAvailable()
-    except OptionalDependencyNotAvailable:
-        pass
-    else:
-        from .modeling_pllava import (
-            PLLAVA_PRETRAINED_MODEL_ARCHIVE_LIST,
-            PllavaForConditionalGeneration,
-            PllavaPreTrainedModel,
-        )
-        from .processing_pllava import PllavaProcessor
-
-
-else:
-    import sys
-
-    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], _import_structure)
+from .modeling_pllava import (
+    PLLAVA_PRETRAINED_MODEL_ARCHIVE_LIST,
+    PllavaForConditionalGeneration,
+    PllavaPreTrainedModel,
+)
+from .processing_pllava import PllavaProcessor
