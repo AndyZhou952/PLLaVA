@@ -19,3 +19,4 @@ from .modeling_pllava import (
     PllavaPreTrainedModel,
 )
 from .processing_pllava import PllavaProcessor
+from .configuration_pllava import PllavaConfig

@@ -12,6 +12,7 @@ import cv2
 import imageio
 import numpy as np
 import mindspore as ms
+import mindnlp
 import mindnlp.core.ops as ops
 import mindspore.dataset.vision as vision
 import mindspore.dataset.transforms as transforms
@@ -409,7 +410,6 @@ class ChatPllava:
         inputs = self.processor(text=prompt, images=img_list, return_tensors="ms")
         if inputs['pixel_values'] is None:
             inputs.pop('pixel_values')
-        inputs = inputs.to(self.model.device)
 
         with mindnlp.core.no_grad():
             output_token = self.model.generate(**inputs, media_type='video',

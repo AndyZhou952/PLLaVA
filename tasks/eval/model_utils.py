@@ -1,4 +1,4 @@
-
+import mindnlp
 import mindspore as ms
 from mindspore import load_param_into_net
 import os
@@ -49,7 +49,8 @@ def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha
     )
     
     with mindnlp.core.no_grad():
-        model = PllavaForConditionalGeneration.from_pretrained(repo_id, config=config, torch_dtype=ms.bfloat16)
+        # TODO: originally bfloat16
+        model = PllavaForConditionalGeneration.from_pretrained(repo_id, config=config, ms_dtype=ms.float32)
         
     try:
         processor = PllavaProcessor.from_pretrained(repo_id)

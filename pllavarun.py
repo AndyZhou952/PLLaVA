@@ -56,16 +56,17 @@ def get_response(chat, chat_state, img_list, question, num_beams, temperature):
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument("--pretrained_model_name_or_path", type=str, required=True
-                        , default="/mnt/disk4/mikecheung/model/llava-v1.6-mistral-7b-hf")
-    parser.add_argument("--num_frames", type=int, required=True, default=4)
+    parser.add_argument("--pretrained_model_name_or_path", type=str, required=False
+                        , default="/mnt/disk4/mikecheung/model/llava-v1.6-vicuna-7b-hf")
+    parser.add_argument("--num_frames", type=int, required=False, default=4)
     parser.add_argument("--use_lora", action='store_true')
     parser.add_argument("--weight_dir", type=str, required=False, default=None)
     parser.add_argument("--conv_mode", type=str, required=False, default="plain")
     parser.add_argument("--lora_alpha", type=int, required=False, default=None)
     parser.add_argument("--video", type=str, help="Path to the video file", default="video.mp4")
     parser.add_argument("--image", type=str, help="Path to the image file", default="llava_v1_5_radar.jpg")
-    parser.add_argument("--question", type=str, help="Question to ask the model", required=True)
+    parser.add_argument("--question", type=str, help="Question to ask the model", required=False,
+                        default="What is shown in this video?")
     parser.add_argument("--num_segments", type=int, default=8, help="Number of video segments")
     parser.add_argument("--num_beams", type=int, default=1, help="Beam search numbers")
     parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling")
