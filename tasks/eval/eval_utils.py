@@ -480,7 +480,6 @@ class ChatPllava:
         return msg, img_list, conv
 
     def upload_img(self, image, conv, img_list):
-        assert False
         img = image
         transform = transforms.Compose(
             [

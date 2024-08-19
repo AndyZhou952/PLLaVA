@@ -1,21 +1,7 @@
-# coding=utf-8
-# Copyright 2023 the HuggingFace Inc. team. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-""" PyTorch Llava model."""
+""" MindSpore Llava model."""
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
-
+from functools import reduce
 import mindspore as ms
 import mindnlp
 import mindnlp.core.nn as nn
@@ -26,7 +12,6 @@ from mindnlp.transformers.cache_utils import Cache
 from mindnlp.transformers.modeling_outputs import ModelOutput
 from mindnlp.transformers.models.auto import AutoModel, AutoModelForCausalLM
 from mindnlp.transformers import logging
-# add/replace docstring not supported
 from .configuration_pllava import PllavaConfig
 
 logger = logging.get_logger(__name__)
@@ -48,29 +33,29 @@ class PllavaCausalLMOutputWithPast(ModelOutput):
     Base class for Llava causal language model (or autoregressive) outputs.
 
     Args:
-        loss (`torch.FloatTensor` of shape `(1,)`, *optional*, returned when `labels` is provided):
+        loss (`mindspore.Tensor` of shape `(1,)`, *optional*, returned when `labels` is provided):
             Language modeling loss (for next-token prediction).
-        logits (`torch.FloatTensor` of shape `(batch_size, sequence_length, config.vocab_size)`):
+        logits (`mindspore.Tensor` of shape `(batch_size, sequence_length, config.vocab_size)`):
             Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
-        past_key_values (`tuple(tuple(torch.FloatTensor))`, *optional*, returned when `use_cache=True` is passed or when `config.use_cache=True`):
-            Tuple of `tuple(torch.FloatTensor)` of length `config.n_layers`, with each tuple having 2 tensors of shape
+        past_key_values (`tuple(tuple(mindspore.Tensor))`, *optional*, returned when `use_cache=True` is passed or when `config.use_cache=True`):
+            Tuple of `tuple(mindspore.Tensor)` of length `config.n_layers`, with each tuple having 2 tensors of shape
             `(batch_size, num_heads, sequence_length, embed_size_per_head)`)
 
             Contains pre-computed hidden-states (key and values in the self-attention blocks) that can be used (see
             `past_key_values` input) to speed up sequential decoding.
-        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+        hidden_states (`tuple(mindspore.Tensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
             Tuple of `torch.FloatTensor` (one for the output of the embeddings, if the model has an embedding layer, +
             one for the output of each layer) of shape `(batch_size, sequence_length, hidden_size)`.
 
             Hidden-states of the model at the output of each layer plus the optional initial embedding outputs.
-        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
-            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
+        attentions (`tuple(mindspore.Tensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
+            Tuple of `mindspore.Tensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
             sequence_length)`.
 
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
             heads.
-        image_hidden_states (`tuple(torch.FloatTensor)`, *optional*):
-            Tuple of `torch.FloatTensor` (one for the output of the image embeddings, `(batch_size, num_images,
+        image_hidden_states (`tuple(mindspore.Tensor)`, *optional*):
+            Tuple of `mindspore.Tensor` (one for the output of the image embeddings, `(batch_size, num_images,
             sequence_length, hidden_size)`.
 
             image_hidden_states of the model produced by the vision encoder, and optionally by the perceiver
@@ -92,7 +77,7 @@ class PllavaMultiModalProjector(nn.Module):
         self.num_frames = config.num_frames
         self.pooling_shape = config.pooling_shape
         
-        self.pooling = nn.AdaptiveAvgPool3d(config.pooling_shape)
+        self.pooling = ms.nn.AdaptiveAvgPool3d(config.pooling_shape)
         self.linear_1 = nn.Linear(config.vision_config.hidden_size, config.text_config.hidden_size, bias=True)
         self.act = ACT2FN[config.projector_hidden_act]
         self.linear_2 = nn.Linear(config.text_config.hidden_size, config.text_config.hidden_size, bias=True)
@@ -101,7 +86,7 @@ class PllavaMultiModalProjector(nn.Module):
         num_videos_frames, _, embed_dims = input.shape
         num_frames = num_videos_frames // num_videos
         input = ops.reshape(input, (num_videos, num_frames * frame_shape[0] * frame_shape[1], embed_dims))
-        input = ops.transpose(input, 1, 2)
+        input = ops.swapaxes(input, 1, 2)
         input = ops.reshape(input, (num_videos, embed_dims, num_frames, frame_shape[0], frame_shape[1]))
         return input
 
@@ -128,7 +113,7 @@ class PllavaMultiModalProjector(nn.Module):
         #TODO: temporal code, should ensure num_frames == total frames in data loading later
         if total_frames < num_frames and self.use_pooling: # 
             multiplier = int(num_frames/total_frames)+1
-            hidden_states= hidden_states.repeat_interleave(multiplier, axis=0)[:num_frames]
+            hidden_states= hidden_states.repeat_interleave(multiplier, dim=0)[:num_frames]
             total_frames, spatial_seqlen, embed_dims = hidden_states.shape
 
         assert total_frames % num_frames == 0
@@ -140,7 +125,7 @@ class PllavaMultiModalProjector(nn.Module):
         hidden_states_videos = self.pooling(hidden_states_videos)
         batch_size_num_videos, embed_dims, num_frames, h, w = hidden_states_videos.shape
         hidden_states = ops.reshape(hidden_states_videos, (batch_size_num_videos, embed_dims, num_frames * h * w))
-        hidden_states = ops.transpose(hidden_states, 1, 2)
+        hidden_states = ops.swapaxes(hidden_states, 1, 2)
         return hidden_states
 
 
@@ -204,7 +189,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         self.vocab_size = config.vocab_size
         self.language_model = AutoModelForCausalLM.from_config(config.text_config, ms_dtype=config.ms_dtype, attn_implementation="flash_attention_2")
         self.pad_token_id = self.config.pad_token_id if self.config.pad_token_id is not None else self.config.text_config.pad_token_id
-        assert self.pad_token_id is not None, 'provide the model with pad_token_id, this would be used to arranging new embedings'
+        assert self.pad_token_id is not None, 'provide the model with pad_token_id, this would be used to arrange new embedings'
         self.post_init()
 
     def get_input_embeddings(self):
@@ -244,7 +229,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         special_image_token_mask = input_ids == self.config.image_token_index
         num_special_image_tokens = ops.sum(special_image_token_mask, dim=-1)
         # Compute the maximum embed dimension
-        max_embed_dim = (num_special_image_tokens.max() * (num_image_patches - 1)) + sequence_length
+        max_embed_dim = (num_special_image_tokens.max() * (num_image_patches - 1)).item() + sequence_length
         batch_indices, non_image_indices = ops.nonzero(input_ids != self.config.image_token_index, as_tuple=True)
 
         # 2. Compute the positions where text should be written
@@ -278,11 +263,20 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
             final_labels[batch_indices, text_to_overwrite] = labels[batch_indices, non_image_indices]
 
         # 5. Fill the embeddings corresponding to the images. Anything that is still zeros needs filling
-        image_to_overwrite = ops.all(final_embedding == 0, dim=-1).astype(ms.int32)
-        image_to_overwrite &= image_to_overwrite.cumsum(-1) > nb_image_pad[:, None]
+        image_to_overwrite = ops.all(final_embedding == 0, dim=-1) # .astype(ms.int32)
+        image_to_overwrite = (image_to_overwrite.int()
+                              & (image_to_overwrite.cumsum(-1) - 1 > nb_image_pad[:, None]).int()).bool()
 
-        final_embedding[image_to_overwrite] = image_features.contiguous().reshape(-1, embed_dim)
-        final_attention_mask |= image_to_overwrite
+        if image_to_overwrite.sum() != reduce(lambda x, y: x*y, image_features.shape[:-1]):
+            raise ValueError(
+                f"The inputs provided to the model are wrong. The number of image tokens is "
+                f"{ops.sum(special_image_token_mask)} while the number of image given to the model"
+                f"is {num_images}. This prevents correct indexing and breaks batch generation."
+            )
+
+     #   final_embedding[image_to_overwrite] = image_features.contiguous().reshape(-1, embed_dim)
+        final_embedding[image_to_overwrite] = image_features.reshape(-1, embed_dim)
+        final_attention_mask = (final_attention_mask.int() | image_to_overwrite.int()).bool()
         position_ids = (final_attention_mask.cumsum(-1) - 1).masked_fill((final_attention_mask == 0), 1)
 
         if labels is None:
@@ -290,8 +284,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
 
         return final_embedding, final_attention_mask, final_labels, position_ids
 
-    # @add_start_docstrings_to_model_forward(PLLAVA_INPUTS_DOCSTRING)
-    # @replace_return_docstrings(output_type=PllavaCausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
+
     def forward(
         self,
         input_ids: ms.Tensor = None,
@@ -310,13 +303,6 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         return_dict: Optional[bool] = None,
     ) -> Union[Tuple, PllavaCausalLMOutputWithPast]:
         r"""
-        Args:
-            labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
-                Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
-                config.vocab_size]` or -100 (see `input_ids` docstring). Tokens with indices set to `-100` are ignored
-                (masked), the loss is only computed for the tokens with labels in `[0, ..., config.vocab_size]`.
-
-        Returns:
 
         Example:
 
@@ -332,7 +318,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         >>> url = "https://www.ilankelman.org/stopsigns/australia.jpg"
         >>> image = Image.open(requests.get(url, stream=True).raw)
 
-        >>> inputs = processor(text=prompt, images=image, return_tensors="pt")
+        >>> inputs = processor(text=prompt, images=image, return_tensors="ms")
 
         >>> # Generate
         >>> generate_ids = model.generate(**inputs, max_length=30)
@@ -373,10 +359,12 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
                         f"Unexpected select feature strategy: {self.config.vision_feature_select_strategy}"
                     )
 
+                num_videos = pixel_values.shape[0]//self.config.num_frames//batch_size
+                # TODO: division by 0 check
                 image_features = self.multi_modal_projector(selected_image_feature,
                                                             media_type,
                                                             batch_size=batch_size,
-                                                            num_videos=pixel_values.shape[0]//self.config.num_frames//batch_size,)
+                                                            num_videos=num_videos,)
                     
                 inputs_embeds, attention_mask, labels, position_ids = self._merge_input_ids_with_image_features(
                     image_features, inputs_embeds, input_ids, attention_mask, labels
@@ -406,12 +394,13 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
                     # Filter out only the tokens that can be un-attended, this can happen
                     # if one uses Llava + Fused modules where the cache on the
                     # first iteration is already big enough, or if one passes custom cache
-                    valid_indices = non_attended_tokens < extended_attention_mask.size(-1)
+                    valid_indices = non_attended_tokens < extended_attention_mask.shape[-1]
                     new_batch_index = batch_index[valid_indices]
                     new_non_attended_tokens = non_attended_tokens[valid_indices]
 
                     # Zero-out the places where we don't need to attend
-                    extended_attention_mask[new_batch_index, new_non_attended_tokens] = 0
+                    if new_batch_index.size > 0 and new_non_attended_tokens.size > 0:
+                        extended_attention_mask[new_batch_index, new_non_attended_tokens] = 0
 
                     attention_mask = ops.cat((attention_mask, extended_attention_mask), dim=1)
                     position_ids = ops.sum(attention_mask, dim=1).unsqueeze(-1) - 1
@@ -458,7 +447,8 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         )
 
     def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, inputs_embeds=None, pixel_values=None, attention_mask=None, media_type = None, **kwargs
+        self, input_ids, past_key_values=None, inputs_embeds=None, pixel_values=None,
+            attention_mask=None, media_type=None, image_sizes=None, **kwargs
     ):
         if past_key_values is not None:
             if isinstance(past_key_values, Cache):
@@ -478,7 +468,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
             elif past_length < input_ids.shape[1]:
                 input_ids = input_ids[:, past_length:]
             # 3 - Otherwise (past_length >= input_ids.shape[1]), let's assume input_ids only has unprocessed tokens.
-            elif self.config.image_token_index in input_ids:
+            elif self.config.image_token_index in input_ids[0]:
                 input_ids = input_ids[:, input_ids.shape[1] - 1 :]
             # If the cache has seen more tokens than it can hold, then the cache has a size limit. Let's discard the
             # older attention values, as their corresponding values are not part of the input.
@@ -499,7 +489,6 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
             model_inputs = {"inputs_embeds": inputs_embeds}
         else:
             model_inputs = {"input_ids": input_ids}
-    #    media_type = kwargs.get('media_type', None)
 
         model_inputs.update(
             {
@@ -509,6 +498,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
                 "attention_mask": attention_mask,
                 "pixel_values": pixel_values,
                 "media_type": media_type,
+                "image_sizes": image_sizes,
             }
         )
         return model_inputs

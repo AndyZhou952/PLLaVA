@@ -34,7 +34,7 @@ def process_input(args, chat):
     img_list = []
 
     if args.video:
-        llm_message, img_list, chat_state = chat.upload_video(args.video, chat_state, img_list, args.num_segments)
+        llm_message, img_list, chat_state = chat.upload_video(args.video, chat_state, img_list)
     elif args.image:
         llm_message, img_list, chat_state = chat.upload_img(args.image, chat_state, img_list)
     else:
@@ -58,7 +58,7 @@ def parse_args():
     parser = ArgumentParser()
     parser.add_argument("--pretrained_model_name_or_path", type=str, required=False
                         , default="/mnt/disk4/mikecheung/model/llava-v1.6-vicuna-7b-hf")
-    parser.add_argument("--num_frames", type=int, required=False, default=4)
+    parser.add_argument("--num_frames", type=int, required=False, default=8)
     parser.add_argument("--use_lora", action='store_true')
     parser.add_argument("--weight_dir", type=str, required=False, default=None)
     parser.add_argument("--conv_mode", type=str, required=False, default="plain")

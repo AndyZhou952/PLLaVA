@@ -84,14 +84,14 @@ def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha
 
         if not use_full:
             print("Loading weight from", weight_dir, "model.safetensors")
-            with safe_open(f"{weight_dir}/model.safetensors", framework="pt", device="cpu") as f:
+            with safe_open(f"{weight_dir}/model.safetensors", framework="np") as f:
                 for k in f.keys():
                     state_dict[k] = f.get_tensor(k)
         else:
             print("Loading weight from", weight_dir)
             for fn in save_fnames:
                 if fn.startswith('model-0'):
-                    with safe_open(f"{weight_dir}/{fn}", framework="pt", device="cpu") as f:
+                    with safe_open(f"{weight_dir}/{fn}", framework="np") as f:
                         for k in f.keys():
                             state_dict[k] = f.get_tensor(k)
             
