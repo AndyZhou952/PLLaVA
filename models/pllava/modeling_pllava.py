@@ -265,17 +265,16 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         # 5. Fill the embeddings corresponding to the images. Anything that is still zeros needs filling
         image_to_overwrite = ops.all(final_embedding == 0, dim=-1) # .astype(ms.int32)
         image_to_overwrite = (image_to_overwrite.int()
-                              & (image_to_overwrite.cumsum(-1) - 1 > nb_image_pad[:, None]).int()).bool()
+                              & (image_to_overwrite.cumsum(-1) - 1 >= nb_image_pad[:, None]).int()).bool()
 
         if image_to_overwrite.sum() != reduce(lambda x, y: x*y, image_features.shape[:-1]):
             raise ValueError(
                 f"The inputs provided to the model are wrong. The number of image tokens is "
                 f"{ops.sum(special_image_token_mask)} while the number of image given to the model"
-                f"is {num_images}. This prevents correct indexing and breaks batch generation."
+                f" is {num_images}. This prevents correct indexing and breaks batch generation."
             )
 
-     #   final_embedding[image_to_overwrite] = image_features.contiguous().reshape(-1, embed_dim)
-        final_embedding[image_to_overwrite] = image_features.reshape(-1, embed_dim)
+        final_embedding[image_to_overwrite] = image_features.contiguous().reshape(-1, embed_dim)
         final_attention_mask = (final_attention_mask.int() | image_to_overwrite.int()).bool()
         position_ids = (final_attention_mask.cumsum(-1) - 1).masked_fill((final_attention_mask == 0), 1)
 
@@ -448,7 +447,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
 
     def prepare_inputs_for_generation(
         self, input_ids, past_key_values=None, inputs_embeds=None, pixel_values=None,
-            attention_mask=None, media_type=None, image_sizes=None, **kwargs
+            attention_mask=None, media_type=None, **kwargs
     ):
         if past_key_values is not None:
             if isinstance(past_key_values, Cache):
@@ -498,7 +497,6 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
                 "attention_mask": attention_mask,
                 "pixel_values": pixel_values,
                 "media_type": media_type,
-                "image_sizes": image_sizes,
             }
         )
         return model_inputs

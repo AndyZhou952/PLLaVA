@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-
+import mindspore as ms
 from tasks.eval.model_utils import load_pllava
 from tasks.eval.eval_utils import (
     ChatPllava,
@@ -7,6 +7,8 @@ from tasks.eval.eval_utils import (
     Conversation,
     conv_templates
 )
+
+ms.set_context(pynative_synchronize = True, jit_config = dict(jit_level = "O1"))
 
 SYSTEM = """You are a powerful Video Magic ChatBot, a large vision-language assistant. 
 You are able to understand the video content that the user provides and assist the user in a video-language related task.
@@ -64,7 +66,7 @@ def parse_args():
     parser.add_argument("--conv_mode", type=str, required=False, default="plain")
     parser.add_argument("--lora_alpha", type=int, required=False, default=None)
     parser.add_argument("--video", type=str, help="Path to the video file", default="video.mp4")
-    parser.add_argument("--image", type=str, help="Path to the image file", default="llava_v1_5_radar.jpg")
+    parser.add_argument("--image", type=str, help="Path to the image file", default=None)
     parser.add_argument("--question", type=str, help="Question to ask the model", required=False,
                         default="What is shown in this video?")
     parser.add_argument("--num_segments", type=int, default=8, help="Number of video segments")
