@@ -403,7 +403,8 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
 
                     attention_mask = ops.cat((attention_mask, extended_attention_mask), dim=1)
                     position_ids = ops.sum(attention_mask, dim=1).unsqueeze(-1) - 1
-        
+
+        self.language_model.set_train(False)
         outputs = self.language_model(
             attention_mask=attention_mask,
             position_ids=position_ids,

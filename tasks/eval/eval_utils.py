@@ -411,12 +411,13 @@ class ChatPllava:
         if inputs['pixel_values'] is None:
             inputs.pop('pixel_values')
 
-        with mindnlp.core.no_grad():
-            output_token = self.model.generate(**inputs, media_type='video',
+#        with mindnlp.core.no_grad():
+        self.model.set_train(False)
+        output_token = self.model.generate(**inputs, media_type='video',
                                         do_sample=self.do_sample,max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length, 
                                         top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature,
                                         ) # dont need to long for the choice.
-            output_text = self.processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        output_text = self.processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
         if self.print_res:
             print('###PROMPT: ', prompt)
