@@ -48,9 +48,9 @@ def load_pllava(repo_id, num_frames, use_lora=False, weight_dir=None, lora_alpha
         **kwargs,
     )
     
-   # with mindnlp.core.no_grad():
+    with mindnlp.utils.no_grad():
         # TODO: originally bfloat16
-    model = PllavaForConditionalGeneration.from_pretrained(repo_id, config=config, ms_dtype=ms.float32)
+        model = PllavaForConditionalGeneration.from_pretrained(repo_id, config=config, ms_dtype=ms.float32)
         
     try:
         processor = PllavaProcessor.from_pretrained(repo_id)
@@ -132,13 +132,13 @@ def pllava_answer(conv: Conversation, model, processor, img_list, do_sample=True
     else:
         stopping_criteria= None
 
- #   with mindnlp.core.no_grad():
-    model.set_train(False)
-    output_token = model.generate(**inputs, media_type='video',
-                                      do_sample=do_sample, max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length, 
-                                      top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature, 
-                                      stopping_criteria=stopping_criteria,)
-    output_text = processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+    with mindnlp.utils.no_grad():
+        model.set_train(False)
+        output_token = model.generate(**inputs, media_type='video',
+                                          do_sample=do_sample, max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length,
+                                          top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature,
+                                          stopping_criteria=stopping_criteria,)
+        output_text = processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
     if print_res: # debug usage
         print('### PROMPTING LM WITH: ', prompt)

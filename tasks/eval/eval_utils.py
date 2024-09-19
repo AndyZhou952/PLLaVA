@@ -13,13 +13,13 @@ import imageio
 import numpy as np
 import mindspore as ms
 import mindnlp
-import mindnlp.core.ops as ops
+import mindnlp.ops as ops
 import mindspore.dataset.vision as vision
 import mindspore.dataset.transforms as transforms
 from moviepy.editor import VideoFileClip
 
 
-from decord import VideoReader, cpu # This is Terrible, if you have this line of import in front of torch, will cause model.to(device) to hang
+from decord import VideoReader, cpu
 from mindnlp.transformers import StoppingCriteria, StoppingCriteriaList
 
 from utils.easydict import EasyDict
@@ -411,13 +411,13 @@ class ChatPllava:
         if inputs['pixel_values'] is None:
             inputs.pop('pixel_values')
 
-#        with mindnlp.core.no_grad():
-        self.model.set_train(False)
-        output_token = self.model.generate(**inputs, media_type='video',
-                                        do_sample=self.do_sample,max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length, 
-                                        top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature,
-                                        ) # dont need to long for the choice.
-        output_text = self.processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        with mindnlp.utils.no_grad():
+            self.model.set_train(False)
+            output_token = self.model.generate(**inputs, media_type='video',
+                                            do_sample=self.do_sample,max_new_tokens=max_new_tokens, num_beams=num_beams, min_length=min_length,
+                                            top_p=top_p, repetition_penalty=repetition_penalty, length_penalty=length_penalty, temperature=temperature,
+                                            ) # don't need to long for the choice.
+            output_text = self.processor.batch_decode(output_token, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 
         if self.print_res:
             print('###PROMPT: ', prompt)

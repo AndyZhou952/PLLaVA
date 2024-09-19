@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple, Union
 from functools import reduce
 import mindspore as ms
 import mindnlp
-import mindnlp.core.nn as nn
-import mindnlp.core.ops as ops
+import mindnlp.nn as nn
+import mindnlp.ops as ops
 from mindnlp.transformers import PreTrainedModel
 from mindnlp.transformers.activations import ACT2FN
 from mindnlp.transformers.cache_utils import Cache
@@ -68,7 +68,7 @@ class PllavaCausalLMOutputWithPast(ModelOutput):
     attentions: Optional[Tuple[ms.Tensor]] = None
     image_hidden_states: Optional[Tuple[ms.Tensor]] = None
 
-class PllavaMultiModalProjector(nn.Module):
+class PllavaMultiModalProjector(nn.Cell):
     supported_highres = ['pad_crop_four', 'slide', ]
     def __init__(self, config: PllavaConfig):
         super().__init__()  
@@ -77,10 +77,10 @@ class PllavaMultiModalProjector(nn.Module):
         self.num_frames = config.num_frames
         self.pooling_shape = config.pooling_shape
         
-        self.pooling = ms.nn.AdaptiveAvgPool3d(config.pooling_shape)
-        self.linear_1 = nn.Linear(config.vision_config.hidden_size, config.text_config.hidden_size, bias=True)
+        self.pooling = nn.AdaptiveAvgPool3d(config.pooling_shape)
+        self.linear_1 = nn.Dense(config.vision_config.hidden_size, config.text_config.hidden_size, has_bias=True)
         self.act = ACT2FN[config.projector_hidden_act]
-        self.linear_2 = nn.Linear(config.text_config.hidden_size, config.text_config.hidden_size, bias=True)
+        self.linear_2 = nn.Dense(config.text_config.hidden_size, config.text_config.hidden_size, has_bias=True)
 
     def convert_Fembeddings2video(self, input, num_videos, frame_shape):
         num_videos_frames, _, embed_dims = input.shape
@@ -113,7 +113,7 @@ class PllavaMultiModalProjector(nn.Module):
         #TODO: temporal code, should ensure num_frames == total frames in data loading later
         if total_frames < num_frames and self.use_pooling: # 
             multiplier = int(num_frames/total_frames)+1
-            hidden_states= hidden_states.repeat_interleave(multiplier, dim=0)[:num_frames]
+            hidden_states= hidden_states.repeat_interleave(multiplier, axis=0)[:num_frames]
             total_frames, spatial_seqlen, embed_dims = hidden_states.shape
 
         assert total_frames % num_frames == 0
@@ -263,7 +263,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
             final_labels[batch_indices, text_to_overwrite] = labels[batch_indices, non_image_indices]
 
         # 5. Fill the embeddings corresponding to the images. Anything that is still zeros needs filling
-        image_to_overwrite = ops.all(final_embedding == 0, dim=-1) # .astype(ms.int32)
+        image_to_overwrite = ops.all(final_embedding == 0, axis=-1) # .astype(ms.int32)
         image_to_overwrite = (image_to_overwrite.int()
                               & (image_to_overwrite.cumsum(-1) - 1 >= nb_image_pad[:, None]).int()).bool()
 
@@ -284,7 +284,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         return final_embedding, final_attention_mask, final_labels, position_ids
 
 
-    def forward(
+    def construct(
         self,
         input_ids: ms.Tensor = None,
         pixel_values: ms.Tensor = None,
@@ -401,7 +401,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
                     if new_batch_index.size > 0 and new_non_attended_tokens.size > 0:
                         extended_attention_mask[new_batch_index, new_non_attended_tokens] = 0
 
-                    attention_mask = ops.cat((attention_mask, extended_attention_mask), dim=1)
+                    attention_mask = ops.cat((attention_mask, extended_attention_mask), axis=1)
                     position_ids = ops.sum(attention_mask, dim=1).unsqueeze(-1) - 1
 
         self.language_model.set_train(False)
