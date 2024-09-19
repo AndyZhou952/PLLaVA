@@ -4,8 +4,8 @@ from typing import List, Optional, Tuple, Union
 from functools import reduce
 import mindspore as ms
 import mindnlp
-import mindnlp.nn as nn
-import mindnlp.ops as ops
+import mindspore.nn as nn
+import mindspore.ops as ops
 from mindnlp.transformers import PreTrainedModel
 from mindnlp.transformers.activations import ACT2FN
 from mindnlp.transformers.cache_utils import Cache

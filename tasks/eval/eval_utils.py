@@ -13,7 +13,7 @@ import imageio
 import numpy as np
 import mindspore as ms
 import mindnlp
-import mindnlp.ops as ops
+import mindspore.ops as ops
 import mindspore.dataset.vision as vision
 import mindspore.dataset.transforms as transforms
 from moviepy.editor import VideoFileClip
