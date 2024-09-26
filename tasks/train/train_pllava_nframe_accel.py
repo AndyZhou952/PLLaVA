@@ -30,39 +30,16 @@ from transformers.utils import TensorType
 
 from tasks.shared_utils import create_optimizer, create_scheduler
 import copy
-from transformers import  (
-    DataCollatorWithPadding,
-    get_scheduler,
-    AutoModel,
-    AutoModelForCausalLM
-    )
+from mindnlp.transformers.optimization import get_scheduler
+from mindnlp.transformers import AutoModel, AutoModelForCausalLM
+# TODO: mindnlp.transformers DataCollatorWithPadding not supported
 from models.pllava import PllavaConfig, PllavaForConditionalGeneration, PllavaProcessor
 
-# logger = logging.getLogger(__name__)
 IMAGE_TOKEN='<image>'
 
 logger = get_logger(__name__)
 
-def maybe_zero_3(param, ignore_status=False, name=None):
-    from deepspeed import zero
-    from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
-    if hasattr(param, "ds_id"):
-        if param.ds_status == ZeroParamStatus.NOT_AVAILABLE:
-            if not ignore_status:
-                print(name, 'no ignore status')
-        with zero.GatheredParameters([param]):
-            param = param.data.detach().cpu().clone()
-    else:
-        param = param.detach().cpu().clone()
-    return param
-
-
-def get_state_maybe_zero_3(named_params, keys_to_match=["lora_","multi_modal_projector"]):
-    to_return = {k: t for k, t in named_params if any(key_match in k for key_match in keys_to_match)}
-    to_return = {k: maybe_zero_3(v, ignore_status=True, name=k).cpu() for k, v in to_return.items()}
-    return to_return
-
-def setup_dataloaders(config, mode="pt", collate_fn=None):
+def setup_dataloaders(config, mode="ms", collate_fn=None):
     # train datasets, create a list of data loaders
     logger.info(f"Creating dataset for {mode}")
     train_datasets = create_dataset(f"{mode}_train", config)

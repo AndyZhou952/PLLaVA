@@ -100,7 +100,7 @@ class PllavaMultiModalProjector(nn.Cell):
         input = ops.reshape(input, (num_videos, num_frames * h * w, embed_dims))
         return input
 
-    def forward(self, image_features, media_type, batch_size=None, num_videos=None):
+    def construct(self, image_features, media_type, batch_size=None, num_videos=None):
         frame_shape = self.frame_shape
         num_frames = self.num_frames
         assert media_type in ( 'video', 'image'), f'only image or video, but got media_type {media_type}'
@@ -187,7 +187,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
         self.vision_tower = AutoModel.from_config(config.vision_config)
         self.multi_modal_projector = PllavaMultiModalProjector(config)
         self.vocab_size = config.vocab_size
-        self.language_model = AutoModelForCausalLM.from_config(config.text_config, ms_dtype=config.ms_dtype, attn_implementation="flash_attention_2")
+        self.language_model = AutoModelForCausalLM.from_config(config.text_config)
         self.pad_token_id = self.config.pad_token_id if self.config.pad_token_id is not None else self.config.text_config.pad_token_id
         assert self.pad_token_id is not None, 'provide the model with pad_token_id, this would be used to arrange new embedings'
         self.post_init()
@@ -346,7 +346,7 @@ class PllavaForConditionalGeneration(PllavaPreTrainedModel):
             # 2. Merge text and images
             if pixel_values is not None and input_ids.shape[1] != 1:
                 image_outputs = self.vision_tower(pixel_values, output_hidden_states=True)
-                # this is not memory efficient at all (output_hidden_states=True) will save all the hidden stated.
+                # this is not memory efficient at all (output_hidden_states=True) will save all the hidden states.
                 selected_image_feature = image_outputs.hidden_states[vision_feature_layer] #  ( b, img_seqlen, embed_dim)
                 if vision_feature_select_strategy == "default":
                     selected_image_feature = selected_image_feature[:, 1:]

@@ -1,4 +1,3 @@
-from utils.distributed import is_main_process, get_rank, get_world_size
 import io
 import json
 import re

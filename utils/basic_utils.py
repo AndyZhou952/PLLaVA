@@ -12,7 +12,7 @@ from typing import List, Union
 
 import torch
 import torch.distributed as dist
-from .distributed import is_dist_avail_and_initialized
+# TODO: remove - from .distributed import is_dist_avail_and_initialized
 
 
 logger = logging.getLogger(__name__)
@@ -40,8 +40,9 @@ class SmoothedValue(object):
         """
         Warning: does not synchronize the deque!
         """
-        if not is_dist_avail_and_initialized():
-            return
+        # TODO: remove
+        # if not is_dist_avail_and_initialized():
+        #     return
         t = torch.tensor([self.count, self.total],
                          dtype=torch.float64, device='cuda')
         dist.barrier()

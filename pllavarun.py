@@ -37,10 +37,8 @@ def process_input(args, chat):
 
     if args.video:
         llm_message, img_list, chat_state = chat.upload_video(args.video, chat_state, img_list)
-    elif args.image:
-        llm_message, img_list, chat_state = chat.upload_img(args.image, chat_state, img_list)
     else:
-        raise ValueError("You must provide either an image or video file.")
+        raise ValueError("You must provide a video file.")
 
     return llm_message, chat_state, img_list
 
@@ -66,10 +64,8 @@ def parse_args():
     parser.add_argument("--conv_mode", type=str, required=False, default="plain")
     parser.add_argument("--lora_alpha", type=int, required=False, default=None)
     parser.add_argument("--video", type=str, help="Path to the video file", default="video.mp4")
-    parser.add_argument("--image", type=str, help="Path to the image file", default=None)
     parser.add_argument("--question", type=str, help="Question to ask the model", required=False,
                         default="What is shown in this video?")
-    parser.add_argument("--num_segments", type=int, default=8, help="Number of video segments")
     parser.add_argument("--num_beams", type=int, default=1, help="Beam search numbers")
     parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for sampling")
 
@@ -88,22 +84,3 @@ if __name__ == "__main__":
 
     print(f"Response: {response}")
 
-##################################################################################
-
-
-# chat_state = INIT_CONVERSATION.copy() if chat_state is None else chat_state
-# img_list = [] if img_list is None else img_list
-# if video:
-# llm_message, img_list, chat_state = chat.upload_video(gr_video, chat_state, img_list, num_segments)
-# llm_message, img_list, chat_state = chat.upload_img(gr_img, chat_state, img_list)
-#
-# chat_state = chat.ask(user_message, chat_state, system)
-# chatbot = chatbot + [[user_message, None]]
-#
-# llm_message, llm_message_token, chat_state = chat.answer(conv=chat_state, img_list=img_list, max_new_tokens=200,
-#                                                              num_beams=num_beams, temperature=temperature)
-# llm_message = llm_message.replace("<s>", "")  # handle <s>
-# chatbot[-1][1] = llm_message
-# print(chat_state)
-# print(f"Answer: {llm_message}")
-# return chatbot, chat_state, img_list

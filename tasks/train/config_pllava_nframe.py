@@ -37,7 +37,7 @@ inputs = dict(
 
 # ========================= model ==========================
 model = dict(
-    repo_id="llava-hf/llava-v1.6-vicuna-7b-hf",
+    repo_id="llava-hf/llava-v1.6-vicuna-7b-hf", # TODO: change this directory
     pretrained_path=None,
     load_from_origin=False,
     origin_vision="",
